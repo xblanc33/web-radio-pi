@@ -14,60 +14,34 @@
 # http://www.adafruit.com/products/600 Printer starter pack
 
 from __future__ import print_function
-import urllib, time
+import urllib2, urllib, json, time
 from Adafruit_Thermal import *
-from xml.dom.minidom import parseString
-
-# WOEID indicates the geographic location for the forecast.  It is
-# not a ZIP code or other common indicator.  Instead, it can be found
-# by 'manually' visiting http://weather.yahoo.com, entering a location
-# and requesting a forecast, then copy the number from the end of the
-# current URL string and paste it here.
-WOEID = '2459115'
-
-# Dumps one forecast line to the printer
-def forecast(idx):
-	tag     = 'yweather:forecast'
-	day     = dom.getElementsByTagName(tag)[idx].getAttribute('day')
-	lo      = dom.getElementsByTagName(tag)[idx].getAttribute('low')
-	hi      = dom.getElementsByTagName(tag)[idx].getAttribute('high')
-	cond    = dom.getElementsByTagName(tag)[idx].getAttribute('text')
-	printer.print(day + ': low ' + lo )
-	printer.print(deg)
-	printer.print(' high ' + hi)
-	printer.print(deg)
-	printer.println(' ' + cond)
 
 printer = Adafruit_Thermal("/dev/ttyAMA0", 19200, timeout=5)
 deg     = chr(0xf8) # Degree symbol on thermal printer
 
 # Fetch forecast data from Yahoo!, parse resulting XML
-dom = parseString(urllib.urlopen(
-        'http://weather.yahooapis.com/forecastrss?w=' + WOEID).read())
+baseurl = "https://www.prevision-meteo.ch/services/json/gradignan"
+result = urllib2.urlopen(baseurl).read()
+data = json.loads(result)
 
 # Print heading
 printer.inverseOn()
-printer.print('{:^32}'.format(
-  dom.getElementsByTagName('description')[0].firstChild.data))
+head = data["city_info"]["name"] + " le " + data["fcst_day_0"]["date"]
+printer.println('{:^32}'.format(head)) 
 printer.inverseOff()
 
 # Print current conditions
 printer.boldOn()
-printer.print('{:^32}'.format('Current conditions:'))
+printer.println('{:^32}'.format('Previsions:'))
 printer.boldOff()
-printer.print('{:^32}'.format(
-  dom.getElementsByTagName('pubDate')[0].firstChild.data))
-temp = dom.getElementsByTagName('yweather:condition')[0].getAttribute('temp')
-cond = dom.getElementsByTagName('yweather:condition')[0].getAttribute('text')
-printer.print(temp)
-printer.print(deg)
-printer.println(' ' + cond)
+tmin = "minimum = "+str(data["fcst_day_0"]["tmin"])
+tmax = "maximum = "+str(data["fcst_day_0"]["tmax"])
+cond = data["fcst_day_0"]["condition"].encode('ascii','ignore')
+printer.println(tmin)
+printer.println(tmax)
+printer.println(cond)
 printer.boldOn()
 
-# Print forecast
-printer.print('{:^32}'.format('Forecast:'))
-printer.boldOff()
-forecast(0)
-forecast(1)
 
 printer.feed(3)
